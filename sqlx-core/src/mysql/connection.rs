@@ -312,11 +312,19 @@ impl MySqlConnection {
 
         // https://mathiasbynens.be/notes/mysql-utf8mb4
 
-        self_.execute(r#"
-SET sql_mode=(SELECT CONCAT(@@sql_mode, ',PIPES_AS_CONCAT,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE'));
-SET time_zone = '+00:00';
-SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
-        "#).await?;
+        let tz = tzparse::get_zoneinfo(&url.param("serverTimezone").unwrap_or("+00:00".into()))
+            .expect("wrong serverTimezone")
+            .utc_offset;
+
+        let sql = format!(
+            r#"
+        SET sql_mode=(SELECT CONCAT(@@sql_mode, ',PIPES_AS_CONCAT,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE'));
+        SET time_zone = '{}';
+        SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;"#,
+            tz
+        );
+
+        self_.execute(sql.as_str()).await?;
 
         Ok(self_)
     }
